@@ -2,17 +2,19 @@ import { db } from "./db";
 import {
   projects, teamMembers, tasks, taskAssignments, taskDependencies, holidays,
   type Project, type TeamMember, type Task, type TaskAssignment, type TaskDependency, type Holiday,
-  type FullProjectResponse
+  type FullProjectResponse, type DayWiseUtilization, type ProjectSummary
 } from "@shared/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 
 export interface IStorage {
   // Projects
   getProjects(): Promise<Project[]>;
   getProject(id: number): Promise<Project | undefined>;
   getFullProject(id: number): Promise<FullProjectResponse | undefined>;
-  createProject(project: Omit<Project, "id">): Promise<Project>;
+  createProject(project: Omit<Project, "id" | "createdAt">): Promise<Project>;
   updateProject(id: number, project: Partial<Project>): Promise<Project>;
+  getProjectSummary(id: number): Promise<ProjectSummary | undefined>;
+  getProjectUtilization(id: number): Promise<DayWiseUtilization[] | undefined>;
 
   // Team
   getTeamMembers(projectId: number): Promise<TeamMember[]>;
@@ -61,7 +63,6 @@ export class DatabaseStorage implements IStorage {
       this.getHolidays(id)
     ]);
 
-    // Fetch assignments and dependencies for these tasks
     const taskIds = projectTasks.map(t => t.id);
     let allAssignments: (TaskAssignment & { teamMember: TeamMember })[] = [];
     let allDependencies: TaskDependency[] = [];
@@ -90,7 +91,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createProject(project: Omit<Project, "id">): Promise<Project> {
+  async createProject(project: Omit<Project, "id" | "createdAt">): Promise<Project> {
     const [created] = await db.insert(projects).values(project).returning();
     return created;
   }
@@ -98,6 +99,71 @@ export class DatabaseStorage implements IStorage {
   async updateProject(id: number, update: Partial<Project>): Promise<Project> {
     const [updated] = await db.update(projects).set(update).where(eq(projects.id, id)).returning();
     return updated;
+  }
+
+  async getProjectSummary(id: number): Promise<ProjectSummary | undefined> {
+    const full = await this.getFullProject(id);
+    if (!full) return undefined;
+
+    const moduleBreakdown: Record<string, number> = {};
+    full.tasks.forEach(t => {
+      const mod = t.moduleName || "Unassigned";
+      moduleBreakdown[mod] = (moduleBreakdown[mod] || 0) + 1;
+    });
+
+    return {
+      totalTasks: full.tasks.length,
+      completedTasks: full.tasks.filter(t => t.status === 'completed').length,
+      criticalPathCount: 0, // Simplified for now
+      overloadedDays: 0, // Will be calculated by utilization
+      moduleBreakdown
+    };
+  }
+
+  async getProjectUtilization(id: number): Promise<DayWiseUtilization[] | undefined> {
+    const full = await this.getFullProject(id);
+    if (!full) return undefined;
+
+    const utilizationMap: Record<string, DayWiseUtilization> = {};
+    
+    full.tasks.forEach(task => {
+      if (!task.startDate || !task.endDate) return;
+      
+      let curr = new Date(task.startDate);
+      const end = new Date(task.endDate);
+      
+      while (curr <= end) {
+        const dateStr = curr.toISOString().split('T')[0];
+        if (!utilizationMap[dateStr]) {
+          utilizationMap[dateStr] = {
+            date: dateStr,
+            members: full.teamMembers.map(m => ({
+              memberId: m.id,
+              name: m.name,
+              utilization: 0,
+              tasks: [],
+              isOverloaded: false
+            }))
+          };
+        }
+
+        task.assignments.forEach(assign => {
+          const memberEntry = utilizationMap[dateStr].members.find(m => m.memberId === assign.teamMemberId);
+          if (memberEntry) {
+            memberEntry.utilization += assign.utilization;
+            memberEntry.tasks.push(task.name);
+            const teamMember = full.teamMembers.find(m => m.id === assign.teamMemberId);
+            if (teamMember && memberEntry.utilization > teamMember.maxCapacity) {
+              memberEntry.isOverloaded = true;
+            }
+          }
+        });
+
+        curr.setDate(curr.getDate() + 1);
+      }
+    });
+
+    return Object.values(utilizationMap).sort((a, b) => a.date.localeCompare(b.date));
   }
 
   // --- Team ---
@@ -136,7 +202,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTask(id: number): Promise<void> {
-    // Delete dependencies and assignments first
     await db.delete(taskDependencies).where(eq(taskDependencies.taskId, id));
     await db.delete(taskDependencies).where(eq(taskDependencies.dependsOnTaskId, id));
     await db.delete(taskAssignments).where(eq(taskAssignments.taskId, id));

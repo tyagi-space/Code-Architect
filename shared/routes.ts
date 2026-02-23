@@ -6,7 +6,9 @@ import {
   insertTaskAssignmentSchema, taskAssignments,
   insertTaskDependencySchema, taskDependencies,
   insertHolidaySchema, holidays,
-  type FullProjectResponse
+  type FullProjectResponse,
+  type DayWiseUtilization,
+  type ProjectSummary
 } from './schema';
 
 export const errorSchemas = {
@@ -62,6 +64,22 @@ export const api = {
       input: insertProjectSchema.partial(),
       responses: {
         200: z.custom<typeof projects.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    getSummary: {
+      method: 'GET' as const,
+      path: '/api/projects/:id/summary' as const,
+      responses: {
+        200: z.custom<ProjectSummary>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    getUtilization: {
+      method: 'GET' as const,
+      path: '/api/projects/:id/utilization' as const,
+      responses: {
+        200: z.array(z.custom<DayWiseUtilization>()),
         404: errorSchemas.notFound,
       }
     }
@@ -219,3 +237,9 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+
+export type ProjectSummaryResponse = z.infer<typeof api.projects.getSummary.responses[200]>;
+export type UtilizationResponse = z.infer<typeof api.projects.getUtilization.responses[200]>;
+export type ValidationError = z.infer<typeof errorSchemas.validation>;
+export type NotFoundError = z.infer<typeof errorSchemas.notFound>;
+export type InternalError = z.infer<typeof errorSchemas.internal>;

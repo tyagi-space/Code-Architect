@@ -52,6 +52,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get(api.projects.getSummary.path, async (req, res) => {
+    const summary = await storage.getProjectSummary(Number(req.params.id));
+    if (!summary) return res.status(404).json({ message: "Project not found" });
+    res.json(summary);
+  });
+
+  app.get(api.projects.getUtilization.path, async (req, res) => {
+    const utilization = await storage.getProjectUtilization(Number(req.params.id));
+    if (!utilization) return res.status(404).json({ message: "Project not found" });
+    res.json(utilization);
+  });
+
   // --- Team ---
   app.get(api.teamMembers.list.path, async (req, res) => {
     const team = await storage.getTeamMembers(Number(req.params.projectId));

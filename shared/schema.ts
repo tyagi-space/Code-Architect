@@ -1,13 +1,21 @@
-import { pgTable, text, serial, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  description: text("description"),
   startDate: text("start_date").notNull(), // ISO date string YYYY-MM-DD
   endDate: text("end_date"),
   workingDays: jsonb("working_days").$type<number[]>().notNull().default([1, 2, 3, 4, 5]),
+  settings: jsonb("settings").$type<{
+    showCriticalPath?: boolean;
+    colorBy?: 'priority' | 'module' | 'member';
+    defaultBuffer?: number;
+  }>().default({ showCriticalPath: true, colorBy: 'priority', defaultBuffer: 0 }),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const teamMembers = pgTable("team_members", {
@@ -15,6 +23,7 @@ export const teamMembers = pgTable("team_members", {
   projectId: integer("project_id").notNull(),
   name: text("name").notNull(),
   role: text("role"),
+  email: text("email"),
   maxCapacity: integer("max_capacity").notNull().default(100),
   costPerDay: integer("cost_per_day"),
 });
@@ -23,26 +32,30 @@ export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").notNull(),
   name: text("name").notNull(),
+  description: text("description"),
   moduleName: text("module_name"),
   startDate: text("start_date"),
   endDate: text("end_date"),
-  duration: integer("duration").notNull(), // in days
-  priority: text("priority").notNull().default("Medium"), 
-  estimatedEffort: integer("estimated_effort"),
+  duration: integer("duration").notNull(), // in working days
+  priority: text("priority").notNull().default("Medium"), // Low, Medium, High, Critical
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed
+  estimatedEffort: integer("estimated_effort"), // in hours
   bufferTime: integer("buffer_time").default(0),
+  color: text("color"), // Optional custom color
 });
 
 export const taskAssignments = pgTable("task_assignments", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull(),
   teamMemberId: integer("team_member_id").notNull(),
-  utilization: integer("utilization").notNull().default(100),
+  utilization: integer("utilization").notNull().default(100), // % of member's capacity
 });
 
 export const taskDependencies = pgTable("task_dependencies", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull(),
   dependsOnTaskId: integer("depends_on_task_id").notNull(),
+  type: text("type").default("FS"), // Finish-to-Start (FS), SS, FF, SF
 });
 
 export const holidays = pgTable("holidays", {
@@ -50,8 +63,10 @@ export const holidays = pgTable("holidays", {
   projectId: integer("project_id").notNull(),
   date: text("date").notNull(),
   name: text("name").notNull(),
+  isGlobal: integer("is_global").default(0), // 1 for global company holiday
 });
 
+// Relations
 export const projectsRelations = relations(projects, ({ many }) => ({
   teamMembers: many(teamMembers),
   tasks: many(tasks),
@@ -64,8 +79,8 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     references: [projects.id],
   }),
   assignments: many(taskAssignments),
-  dependencies: many(taskDependencies, { relationName: "dependencies" }),
-  dependents: many(taskDependencies, { relationName: "dependents" }),
+  dependencies: many(taskDependencies, { relationName: "task_to_deps" }),
+  dependents: many(taskDependencies, { relationName: "task_to_dependents" }),
 }));
 
 export const teamMembersRelations = relations(teamMembers, ({ one, many }) => ({
@@ -91,12 +106,12 @@ export const taskDependenciesRelations = relations(taskDependencies, ({ one }) =
   task: one(tasks, {
     fields: [taskDependencies.taskId],
     references: [tasks.id],
-    relationName: "dependencies"
+    relationName: "task_to_deps"
   }),
   dependsOnTask: one(tasks, {
     fields: [taskDependencies.dependsOnTaskId],
     references: [tasks.id],
-    relationName: "dependents"
+    relationName: "task_to_dependents"
   }),
 }));
 
@@ -107,13 +122,15 @@ export const holidaysRelations = relations(holidays, ({ one }) => ({
   }),
 }));
 
-export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
+// Schemas
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true });
 export const insertTaskAssignmentSchema = createInsertSchema(taskAssignments).omit({ id: true });
 export const insertTaskDependencySchema = createInsertSchema(taskDependencies).omit({ id: true });
 export const insertHolidaySchema = createInsertSchema(holidays).omit({ id: true });
 
+// Types
 export type Project = typeof projects.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
@@ -129,3 +146,22 @@ export type FullProjectResponse = Project & {
   })[];
   holidays: Holiday[];
 };
+
+export interface DayWiseUtilization {
+  date: string;
+  members: {
+    memberId: number;
+    name: string;
+    utilization: number;
+    tasks: string[];
+    isOverloaded: boolean;
+  }[];
+}
+
+export interface ProjectSummary {
+  totalTasks: number;
+  completedTasks: number;
+  criticalPathCount: number;
+  overloadedDays: number;
+  moduleBreakdown: Record<string, number>;
+}
