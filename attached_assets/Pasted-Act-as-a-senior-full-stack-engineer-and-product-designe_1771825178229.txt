@@ -1,0 +1,184 @@
+Act as a senior full-stack engineer and product designer.
+
+Build a minimal but powerful web application for generating highly informative Gantt charts with team planning and resource management.
+
+Tech Stack:
+- Backend: Python (FastAPI)
+- Frontend: HTML, CSS, Vanilla JS (clean dashboard UI)
+- Database: SQLite
+- Charts: Plotly.js (preferred for interactive Gantt + resource graphs)
+
+--------------------------------------------------
+CORE OBJECTIVE
+--------------------------------------------------
+Create a project planning tool where users can:
+- Define tasks
+- Assign team members
+- Manage dependencies
+- Account for holidays
+- Track resource utilization
+- Generate a detailed Gantt chart + reports
+
+--------------------------------------------------
+INPUT MODULE (VERY IMPORTANT - SIMPLE UX)
+--------------------------------------------------
+
+1. Project Details:
+- Project Name
+- Project Start Date
+- Project End Date (optional / auto-calculated)
+- Working Days (Mon–Fri or custom selection)
+
+2. Team Configuration:
+- Team Name
+- Add multiple team members dynamically:
+    Each member:
+    - Name
+    - Role (optional)
+    - Max Capacity (%) per day (default 100%)
+    - Cost per day (optional)
+
+3. Task Management (Dynamic Table UI):
+Each task should include:
+- Task Name
+- Module/Phase Name (e.g., Backend, UI, Testing)
+- Start Date (optional if dependency exists)
+- Duration (in days)
+- Assigned Team Member(s)
+- Resource Utilization (%) per member (optional)
+- Dependency (select previous tasks)
+- Priority (Low, Medium, High, Critical)
+- Estimated Effort (in hours/days, optional)
+- Buffer Time (optional)
+
+4. Holiday & Leave Management:
+- Add Holiday List (date + name)
+- Weekly Off selection
+- Team member leave (optional advanced)
+
+--------------------------------------------------
+SMART SCHEDULING ENGINE
+--------------------------------------------------
+
+Implement logic to:
+- Auto-calculate task start/end dates
+- Respect dependencies
+- Skip holidays and non-working days
+- Adjust schedule based on resource availability
+- Prevent over-allocation (>100%)
+- Highlight conflicts (overallocation or invalid dependencies)
+- Calculate:
+    - Task End Date
+    - Total Project Duration
+    - Critical Path (basic version)
+
+--------------------------------------------------
+OUTPUT MODULE (VERY INFORMATIVE)
+--------------------------------------------------
+
+Provide multiple views:
+
+1. Interactive Gantt Chart:
+- Plotly Gantt chart
+- Color by Priority
+- Show:
+    - Task Name
+    - Assigned Members
+    - Duration
+    - Dependencies
+- Highlight:
+    - Critical tasks
+    - Delayed tasks
+- Tooltip with full details
+
+2. Resource Utilization Chart:
+- Bar/line chart showing:
+    - Member-wise daily utilization %
+    - Overloaded resources highlighted
+
+3. Day-wise Execution Plan (Table):
+Columns:
+- Date
+- Tasks running
+- Assigned members
+- Utilization %
+- Notes (holiday / weekend)
+
+4. Calendar View:
+- Monthly breakdown
+- Tasks mapped visually on dates
+
+5. Summary Dashboard:
+- Total Tasks
+- Completed Duration
+- Critical Path Tasks
+- Overallocated Resources
+- Module-wise breakdown
+
+--------------------------------------------------
+EXPORT FEATURES
+--------------------------------------------------
+
+- Export Gantt Chart as PNG
+- Export full dataset as CSV/Excel
+- Export summary report as PDF
+
+--------------------------------------------------
+API DESIGN (FastAPI)
+--------------------------------------------------
+
+- POST /create-project
+- POST /generate-plan
+- GET /project/{id}
+- GET /export/{type}
+
+--------------------------------------------------
+UI/UX REQUIREMENTS
+--------------------------------------------------
+
+- Clean SaaS-style dashboard
+- Sections:
+    - Project Setup
+    - Team Setup
+    - Task Input
+    - Visualization
+- Use cards, spacing, and modern colors
+- Responsive design
+
+--------------------------------------------------
+BONUS FEATURES (if possible)
+--------------------------------------------------
+
+- Save & reload projects
+- Pre-filled demo project
+- Edit existing tasks
+- Drag-and-drop task ordering
+
+--------------------------------------------------
+CODE QUALITY
+--------------------------------------------------
+
+- Modular code structure
+- Separate scheduling logic module
+- Clear comments
+- Error handling for invalid inputs
+
+--------------------------------------------------
+FOLDER STRUCTURE
+--------------------------------------------------
+
+backend/
+frontend/
+static/
+templates/
+
+--------------------------------------------------
+DELIVERABLES
+--------------------------------------------------
+
+- Fully working app on Replit
+- requirements.txt
+- README.md
+- Runs with one command
+
+Keep it minimal but feature-rich. Focus on functionality over heavy design.
