@@ -18,6 +18,27 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  username: text("username").notNull().unique(),
+  phone: text("phone").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("user"), // admin | manager | user
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const passwordResetOtps = pgTable("password_reset_otps", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  otp: text("otp").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const teamMembers = pgTable("team_members", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").notNull(),
@@ -129,6 +150,30 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true });
 export const insertTaskAssignmentSchema = createInsertSchema(taskAssignments).omit({ id: true });
 export const insertTaskDependencySchema = createInsertSchema(taskDependencies).omit({ id: true });
 export const insertHolidaySchema = createInsertSchema(holidays).omit({ id: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, passwordHash: true });
+export const createUserSchema = z.object({
+  fullName: z.string().min(2),
+  username: z.string().min(3).max(32),
+  phone: z.string().min(7).max(20),
+  password: z.string().min(8),
+  role: z.enum(["admin", "manager", "user"]).default("user"),
+});
+export const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+export const forgotPasswordRequestSchema = z.object({
+  phone: z.string().min(7).max(20),
+});
+export const otpVerifySchema = z.object({
+  phone: z.string().min(7).max(20),
+  otp: z.string().length(6),
+});
+export const passwordResetSchema = z.object({
+  phone: z.string().min(7).max(20),
+  otp: z.string().length(6),
+  newPassword: z.string().min(8),
+});
 
 // Types
 export type Project = typeof projects.$inferSelect;
@@ -137,6 +182,16 @@ export type Task = typeof tasks.$inferSelect;
 export type TaskAssignment = typeof taskAssignments.$inferSelect;
 export type TaskDependency = typeof taskDependencies.$inferSelect;
 export type Holiday = typeof holidays.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type PasswordResetOtp = typeof passwordResetOtps.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type InsertTaskAssignment = z.infer<typeof insertTaskAssignmentSchema>;
+export type InsertTaskDependency = z.infer<typeof insertTaskDependencySchema>;
+export type InsertHoliday = z.infer<typeof insertHolidaySchema>;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export type FullProjectResponse = Project & {
   teamMembers: TeamMember[];

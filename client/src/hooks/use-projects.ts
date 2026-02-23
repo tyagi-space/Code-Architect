@@ -26,6 +26,32 @@ export function useProjectFull(id: number) {
   });
 }
 
+export function useProjectSummary(id: number) {
+  return useQuery({
+    queryKey: [buildUrl(api.projects.getSummary.path, { id })],
+    queryFn: async () => {
+      const url = buildUrl(api.projects.getSummary.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch project summary");
+      return api.projects.getSummary.responses[200].parse(await res.json());
+    },
+    enabled: !!id,
+  });
+}
+
+export function useProjectUtilization(id: number) {
+  return useQuery({
+    queryKey: [buildUrl(api.projects.getUtilization.path, { id })],
+    queryFn: async () => {
+      const url = buildUrl(api.projects.getUtilization.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch utilization report");
+      return api.projects.getUtilization.responses[200].parse(await res.json());
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -68,6 +94,30 @@ export function useUpdateProject() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.projects.list.path] });
       queryClient.invalidateQueries({ queryKey: [buildUrl(api.projects.getFull.path, { id: variables.id })] });
+    },
+  });
+}
+
+export function useExportProjectExcel() {
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.projects.exportExcel.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to export project report");
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") || "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] || `project_${id}_gantt_report.xlsx`;
+
+      const blobUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = blobUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(blobUrl);
     },
   });
 }

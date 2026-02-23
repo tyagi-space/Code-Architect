@@ -6,6 +6,7 @@ import {
   insertTaskAssignmentSchema, taskAssignments,
   insertTaskDependencySchema, taskDependencies,
   insertHolidaySchema, holidays,
+  createUserSchema, loginSchema, forgotPasswordRequestSchema, otpVerifySchema, passwordResetSchema, users,
   type FullProjectResponse,
   type DayWiseUtilization,
   type ProjectSummary
@@ -25,6 +26,99 @@ export const errorSchemas = {
 };
 
 export const api = {
+  auth: {
+    me: {
+      method: "GET" as const,
+      path: "/api/auth/me" as const,
+      responses: {
+        200: z.object({
+          id: z.number(),
+          fullName: z.string(),
+          username: z.string(),
+          phone: z.string(),
+          role: z.string(),
+        }),
+        401: errorSchemas.notFound,
+      },
+    },
+    setupStatus: {
+      method: "GET" as const,
+      path: "/api/auth/setup-status" as const,
+      responses: {
+        200: z.object({
+          hasUsers: z.boolean(),
+          canBootstrap: z.boolean(),
+          canManageUsers: z.boolean(),
+        }),
+      },
+    },
+    login: {
+      method: "POST" as const,
+      path: "/api/auth/login" as const,
+      input: loginSchema,
+      responses: {
+        200: z.object({
+          id: z.number(),
+          fullName: z.string(),
+          username: z.string(),
+          phone: z.string(),
+          role: z.string(),
+        }),
+        400: errorSchemas.validation,
+      },
+    },
+    logout: {
+      method: "POST" as const,
+      path: "/api/auth/logout" as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+      },
+    },
+    forgotPasswordRequest: {
+      method: "POST" as const,
+      path: "/api/auth/forgot-password/request" as const,
+      input: forgotPasswordRequestSchema,
+      responses: {
+        200: z.object({ success: z.boolean(), message: z.string() }),
+      },
+    },
+    forgotPasswordVerify: {
+      method: "POST" as const,
+      path: "/api/auth/forgot-password/verify" as const,
+      input: otpVerifySchema,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        400: errorSchemas.validation,
+      },
+    },
+    forgotPasswordReset: {
+      method: "POST" as const,
+      path: "/api/auth/forgot-password/reset" as const,
+      input: passwordResetSchema,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+  users: {
+    list: {
+      method: "GET" as const,
+      path: "/api/users" as const,
+      responses: {
+        200: z.array(z.custom<Omit<typeof users.$inferSelect, "passwordHash">>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/users" as const,
+      input: createUserSchema,
+      responses: {
+        201: z.custom<Omit<typeof users.$inferSelect, "passwordHash">>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
   projects: {
     list: {
       method: 'GET' as const,
@@ -80,6 +174,14 @@ export const api = {
       path: '/api/projects/:id/utilization' as const,
       responses: {
         200: z.array(z.custom<DayWiseUtilization>()),
+        404: errorSchemas.notFound,
+      }
+    },
+    exportExcel: {
+      method: 'GET' as const,
+      path: '/api/projects/:id/export/excel' as const,
+      responses: {
+        200: z.void(),
         404: errorSchemas.notFound,
       }
     }
