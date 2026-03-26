@@ -111,12 +111,38 @@ export class DatabaseStorage implements IStorage {
       moduleBreakdown[mod] = (moduleBreakdown[mod] || 0) + 1;
     });
 
+    const taskEndDates = full.tasks
+      .map((t) => t.endDate)
+      .filter((d): d is string => Boolean(d))
+      .sort((a, b) => a.localeCompare(b));
+    const projectedEndDate = taskEndDates.length > 0 ? taskEndDates[taskEndDates.length - 1] : null;
+    const plannedEndDate = full.endDate ?? null;
+    const todayIso = new Date().toISOString().split("T")[0];
+
+    const scheduleVarianceDays =
+      plannedEndDate && projectedEndDate ? dateDiffDays(plannedEndDate, projectedEndDate) : 0;
+    const delayDays = Math.max(0, scheduleVarianceDays);
+    const isDelayed = delayDays > 0;
+    const isOverdueNow = Boolean(
+      plannedEndDate &&
+      full.tasks.some((t) => t.status !== "completed") &&
+      dateDiffDays(plannedEndDate, todayIso) > 0,
+    );
+    const daysRemainingToTarget = plannedEndDate ? Math.max(0, dateDiffDays(todayIso, plannedEndDate)) : 0;
+
     return {
       totalTasks: full.tasks.length,
       completedTasks: full.tasks.filter(t => t.status === 'completed').length,
       criticalPathCount: 0, // Simplified for now
       overloadedDays: 0, // Will be calculated by utilization
-      moduleBreakdown
+      moduleBreakdown,
+      plannedEndDate,
+      projectedEndDate,
+      scheduleVarianceDays,
+      delayDays,
+      isDelayed,
+      isOverdueNow,
+      daysRemainingToTarget,
     };
   }
 
@@ -244,3 +270,9 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+function dateDiffDays(fromIsoDate: string, toIsoDate: string): number {
+  const from = new Date(`${fromIsoDate}T00:00:00Z`).getTime();
+  const to = new Date(`${toIsoDate}T00:00:00Z`).getTime();
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}

@@ -219,4 +219,11 @@ export interface ProjectSummary {
   criticalPathCount: number;
   overloadedDays: number;
   moduleBreakdown: Record<string, number>;
+  plannedEndDate: string | null;
+  projectedEndDate: string | null;
+  scheduleVarianceDays: number;
+  delayDays: number;
+  isDelayed: boolean;
+  isOverdueNow: boolean;
+  daysRemainingToTarget: number;
 }

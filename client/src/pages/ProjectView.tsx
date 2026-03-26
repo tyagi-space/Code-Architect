@@ -110,6 +110,21 @@ export default function ProjectView() {
                   <span>Target: {format(parseISO(project.endDate), "MMM d, yyyy")}</span>
                 </div>
               )}
+              {summary && (
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-semibold ${
+                    summary.isDelayed || summary.isOverdueNow
+                      ? "bg-red-100 text-red-700"
+                      : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  <span>
+                    {summary.isDelayed || summary.isOverdueNow
+                      ? `Delayed by ${summary.delayDays} day(s)`
+                      : "On track"}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

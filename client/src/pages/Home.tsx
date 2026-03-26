@@ -16,12 +16,17 @@ export default function Home() {
   const { toast } = useToast();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", startDate: "" });
+  const [formData, setFormData] = useState({ name: "", startDate: "", endDate: "" });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.startDate) {
-       toast({ title: "Validation Error", description: "Name and start date are required", variant: "destructive" });
+    if (!formData.name || !formData.startDate || !formData.endDate) {
+       toast({ title: "Validation Error", description: "Name, start date and target end date are required", variant: "destructive" });
+       return;
+    }
+
+    if (formData.endDate < formData.startDate) {
+      toast({ title: "Validation Error", description: "Target end date must be on or after start date", variant: "destructive" });
        return;
     }
     
@@ -29,10 +34,11 @@ export default function Home() {
       await createProject.mutateAsync({
         name: formData.name,
         startDate: formData.startDate,
+        endDate: formData.endDate,
         workingDays: [1, 2, 3, 4, 5], // Default Mon-Fri
       });
       setIsDialogOpen(false);
-      setFormData({ name: "", startDate: "" });
+      setFormData({ name: "", startDate: "", endDate: "" });
       toast({ title: "Success", description: "Project created successfully." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -80,6 +86,17 @@ export default function Home() {
                     className="h-12 rounded-xl"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">Target End Date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    className="h-12 rounded-xl"
+                    value={formData.endDate}
+                    min={formData.startDate || undefined}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                   />
                 </div>
                 <Button type="submit" className="w-full h-12 rounded-xl text-md" disabled={createProject.isPending}>

@@ -68,8 +68,22 @@ export function ProjectAnalytics({ project, summary, utilization }: ProjectAnaly
         <MetricCard title="Total Tasks" value={summary?.totalTasks ?? project.tasks.length} />
         <MetricCard title="Completed" value={summary?.completedTasks ?? statusMap.completed ?? 0} />
         <MetricCard title="Team Size" value={project.teamMembers.length} />
+        <MetricCard title="Plan Delay (Days)" value={summary?.delayDays ?? 0} />
+        <MetricCard title="Days To Target" value={summary?.daysRemainingToTarget ?? 0} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <MetricCard title="Overloaded Days" value={totalOverloadedDays} />
         <MetricCard title="Avg Team Idle %" value={avgIdlePct} />
+        <div className="glass-card rounded-xl p-4 border border-border/50">
+          <p className="text-sm text-muted-foreground">Target Tracking</p>
+          <p className={`text-2xl font-bold mt-1 ${(summary?.isDelayed || summary?.isOverdueNow) ? "text-red-600" : "text-emerald-600"}`}>
+            {(summary?.isDelayed || summary?.isOverdueNow) ? "Delayed" : "On Track"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Planned: {summary?.plannedEndDate ?? "N/A"} | Projected: {summary?.projectedEndDate ?? "N/A"}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
