@@ -1,10 +1,10 @@
 import type { Express } from "express";
-import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import * as XLSX from "xlsx-js-style";
 import { db } from "./db";
+import { clearSession, setSession } from "./auth";
 import {
   users,
   passwordResetOtps,
@@ -24,14 +24,11 @@ import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 import { log } from "node:console";
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   // --- Auth ---
   app.get(api.auth.me.path, async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
-    const [user] = await db.select().from(users).where(eq(users.id, req.session.userId)).limit(1);
+    if (!req.auth?.userId) return res.status(401).json({ message: "Unauthorized" });
+    const [user] = await db.select().from(users).where(eq(users.id, req.auth.userId)).limit(1);
     if (!user) return res.status(401).json({ message: "Unauthorized" });
     res.json(sanitizeUser(user));
   });
@@ -42,7 +39,7 @@ export async function registerRoutes(
     res.json({
       hasUsers,
       canBootstrap: !hasUsers,
-      canManageUsers: req.session.role === "admin",
+      canManageUsers: req.auth?.role === "admin",
     });
   });
 
@@ -67,8 +64,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid credentials" });
       }
 
-      req.session.userId = user.id;
-      req.session.role = user.role;
+      setSession(res, { userId: user.id, role: user.role });
       res.json(sanitizeUser(user));
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -79,9 +75,8 @@ export async function registerRoutes(
   });
 
   app.post(api.auth.logout.path, async (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
+    clearSession(res);
+    res.json({ success: true });
   });
 
   app.post(api.auth.forgotPasswordRequest.path, async (req, res) => {
@@ -176,10 +171,10 @@ export async function registerRoutes(
       const isBootstrap = existingUsers.length === 0;
 
       if (!isBootstrap) {
-        if (!req.session.userId) {
+        if (!req.auth?.userId) {
           return res.status(401).json({ message: "Initial setup already completed. Please login as admin to add users." });
         }
-        if (req.session.role !== "admin") return res.status(403).json({ message: "Only admin can add users." });
+        if (req.auth?.role !== "admin") return res.status(403).json({ message: "Only admin can add users." });
       }
 
       const [usernameExists] = await db
@@ -702,7 +697,7 @@ export async function registerRoutes(
   // Seed Data Call
   seedDatabase().catch(console.error);
 
-  return httpServer;
+  return;
 }
 
 async function seedDatabase() {
@@ -876,12 +871,12 @@ function normalizeHolidayCreateInput(input: any, projectId: number): Omit<Holida
 }
 
 function requireAuth(req: any, res: any, next: any) {
-  if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+  if (!req.auth?.userId) return res.status(401).json({ message: "Unauthorized" });
   next();
 }
 
 function requireAdmin(req: any, res: any, next: any) {
-  if (req.session?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  if (req.auth?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
   next();
 }
 
@@ -899,7 +894,7 @@ function requireAuthUnlessPublic(req: any, res: any, next: any) {
 
   if (publicPaths.has(fullPath)) return next();
   if (req.method === "POST" && fullPath === api.users.create.path) return next();
-  if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+  if (!req.auth?.userId) return res.status(401).json({ message: "Unauthorized" });
   next();
 }
 
